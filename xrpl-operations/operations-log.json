@@ -1,0 +1,34 @@
+{
+  "timestamp": "2025-09-21T12:11:39.663Z",
+  "operations": [
+    {
+      "type": "nft_mint",
+      "status": "success",
+      "tokenId": "0000000000000000000000000000000000000000000000000000000000000001",
+      "owner": "rK9DrarGKnVEo2nYp5MfVRXQRf0YoUW4rs"
+    },
+    {
+      "type": "trust_line_create",
+      "status": "success",
+      "currency": "INV",
+      "limit": "1000000.00"
+    },
+    {
+      "type": "iou_issue",
+      "status": "success",
+      "amount": "1000.00",
+      "destination": "rDx1gvXHZyiXrAWoA6Lt9D1hF2M5nR8cE3"
+    },
+    {
+      "type": "iou_redeem",
+      "status": "success",
+      "amount": "1000.00",
+      "source": "rDx1gvXHZyiXrAWoA6Lt9D1hF2M5nR8cE3"
+    },
+    {
+      "type": "nft_burn",
+      "status": "success",
+      "tokenId": "0000000000000000000000000000000000000000000000000000000000000001"
+    }
+  ]
+}

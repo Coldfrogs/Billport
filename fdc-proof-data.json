@@ -1,0 +1,39 @@
+{
+  "wrId": "WR-FDC-DEMO-001",
+  "wrHash": "0x24b9651025ef646fb6d1edb9d8d3ec513bf123e849fd4f555b6dd84e530a2975",
+  "roundIdA": 22130409,
+  "roundIdB": 22130410,
+  "attestationIdA": "0x00b72028e2aa031585a3502ff4c8fd1c5cc38b9d5e9a618621288ca75dc20a58",
+  "attestationIdB": "0x5cf68ba684d5a979ce450d87795812bed7c7e19594a0226be49331f5ec6a691a",
+  "warehouseTemplateHash": "0x91635a6ba4ec4b95ce21f41c73f72c06a0e3517d0b67f75b22a28e7cfcbec275",
+  "ipfsTemplateHash": "0xea6a45717f22fcaf9ba05d823ce344f3d3ed221b0055a716428287f9c73d7d25",
+  "proofA": {
+    "roundId": 22130409,
+    "attestationId": "0x00b72028e2aa031585a3502ff4c8fd1c5cc38b9d5e9a618621288ca75dc20a58",
+    "wrId": "WR-FDC-DEMO-001",
+    "wrHash": "0x24b9651025ef646fb6d1edb9d8d3ec513bf123e849fd4f555b6dd84e530a2975",
+    "fileCid": "QmFDCDemoCid123456789",
+    "issuerId": "ISSUER-FDC-001",
+    "issuedAt": "2025-09-21T10:45:24.293Z",
+    "status": "WR_ISSUED",
+    "pledgeState": "PLEDGED",
+    "templateHash": "0x91635a6ba4ec4b95ce21f41c73f72c06a0e3517d0b67f75b22a28e7cfcbec275",
+    "signature": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "timestamp": "2025-09-21T10:45:24.294Z"
+  },
+  "proofB": {
+    "roundId": 22130410,
+    "attestationId": "0x5cf68ba684d5a979ce450d87795812bed7c7e19594a0226be49331f5ec6a691a",
+    "wrId": "WR-FDC-DEMO-001",
+    "wrHash": "0x24b9651025ef646fb6d1edb9d8d3ec513bf123e849fd4f555b6dd84e530a2975",
+    "fileCid": "QmFDCDemoCid123456789",
+    "issuerId": "ISSUER-FDC-001",
+    "issuedAt": "2025-09-21T10:45:24.294Z",
+    "status": "WR_ISSUED",
+    "pledgeState": "PLEDGED",
+    "templateHash": "0xea6a45717f22fcaf9ba05d823ce344f3d3ed221b0055a716428287f9c73d7d25",
+    "signature": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "timestamp": "2025-09-21T10:45:24.294Z"
+  },
+  "completedAt": "2025-09-21T10:45:49.483Z"
+}

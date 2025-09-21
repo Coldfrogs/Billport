@@ -1,0 +1,35 @@
+{
+  "name": "Warehouse Receipt NFT - WR-2024-1758456698475",
+  "description": "Digital representation of warehouse receipt WR-2024-1758456698475",
+  "image": "https://ipfs.io/ipfs/QmTest123...",
+  "attributes": [
+    {
+      "trait_type": "WR ID",
+      "value": "WR-2024-1758456698475"
+    },
+    {
+      "trait_type": "WR Hash",
+      "value": "0x2d880f957043f624668f3c105e555db9f7459a90f1e1f6c32291da1042e146d6"
+    },
+    {
+      "trait_type": "File CID",
+      "value": "QmTest123..."
+    },
+    {
+      "trait_type": "Issuer ID",
+      "value": "0xdaC0C95975eD9E9B90E99759B5e1dD5EcfCF3A46"
+    },
+    {
+      "trait_type": "Pledge State",
+      "value": "Pledged"
+    },
+    {
+      "trait_type": "Attestation Status",
+      "value": "Attested"
+    }
+  ],
+  "external_url": "https://flare-explorer.com/wr/WR-2024-1758456698475",
+  "background_color": "000000",
+  "animation_url": "https://ipfs.io/ipfs/QmTest456...",
+  "youtube_url": "https://youtube.com/watch?v=test123"
+}

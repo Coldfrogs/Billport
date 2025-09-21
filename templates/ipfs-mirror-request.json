@@ -1,0 +1,27 @@
+{
+  "name": "IPFS Mirror Request Template", 
+  "description": "Template for querying IPFS mirror to verify WR data",
+  "url": "https://ipfs-gateway.flare.network/ipfs/{{FILE_CID}}",
+  "method": "GET",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "responseMapping": {
+    "wrId": ".wrId",
+    "wrHash": ".wrHash",
+    "fileCid": ".fileCid", 
+    "issuerId": ".issuerId",
+    "issuedAt": ".issuedAt",
+    "status": ".status",
+    "pledgeState": ".pledgeState"
+  },
+  "expectedResponse": {
+    "wrId": "WR-001-DEMO",
+    "wrHash": "0x1234567890abcdef...",
+    "fileCid": "QmTestCid123...",
+    "issuerId": "ISSUER-001", 
+    "issuedAt": "2025-09-21T09:00:00Z",
+    "status": "WR_ISSUED",
+    "pledgeState": "PLEDGED"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "Warehouse API Request Template",
+  "description": "Template for querying warehouse API to verify WR status",
+  "url": "https://warehouse-api-demo.flare.network/api/wr",
+  "method": "GET",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer {{API_KEY}}"
+  },
+  "queryParams": {
+    "wrId": "{{WR_ID}}",
+    "includeStatus": "true",
+    "includePledgeState": "true"
+  },
+  "responseMapping": {
+    "wrId": ".data.wrId",
+    "wrHash": ".data.wrHash", 
+    "fileCid": ".data.fileCid",
+    "issuerId": ".data.issuerId",
+    "issuedAt": ".data.issuedAt",
+    "status": ".data.status",
+    "pledgeState": ".data.pledgeState"
+  },
+  "expectedResponse": {
+    "wrId": "WR-001-DEMO",
+    "wrHash": "0x1234567890abcdef...",
+    "fileCid": "QmTestCid123...",
+    "issuerId": "ISSUER-001",
+    "issuedAt": "2025-09-21T09:00:00Z",
+    "status": "WR_ISSUED",
+    "pledgeState": "PLEDGED"
+  }
+}

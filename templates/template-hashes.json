@@ -1,0 +1,69 @@
+{
+  "warehouseApi": {
+    "hash": "0x91635a6ba4ec4b95ce21f41c73f72c06a0e3517d0b67f75b22a28e7cfcbec275",
+    "template": {
+      "name": "Warehouse API Request Template",
+      "description": "Template for querying warehouse API to verify WR status",
+      "url": "https://warehouse-api-demo.flare.network/api/wr",
+      "method": "GET",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{API_KEY}}"
+      },
+      "queryParams": {
+        "wrId": "{{WR_ID}}",
+        "includeStatus": "true",
+        "includePledgeState": "true"
+      },
+      "responseMapping": {
+        "wrId": ".data.wrId",
+        "wrHash": ".data.wrHash",
+        "fileCid": ".data.fileCid",
+        "issuerId": ".data.issuerId",
+        "issuedAt": ".data.issuedAt",
+        "status": ".data.status",
+        "pledgeState": ".data.pledgeState"
+      },
+      "expectedResponse": {
+        "wrId": "WR-001-DEMO",
+        "wrHash": "0x1234567890abcdef...",
+        "fileCid": "QmTestCid123...",
+        "issuerId": "ISSUER-001",
+        "issuedAt": "2025-09-21T09:00:00Z",
+        "status": "WR_ISSUED",
+        "pledgeState": "PLEDGED"
+      }
+    }
+  },
+  "ipfsMirror": {
+    "hash": "0xea6a45717f22fcaf9ba05d823ce344f3d3ed221b0055a716428287f9c73d7d25",
+    "template": {
+      "name": "IPFS Mirror Request Template",
+      "description": "Template for querying IPFS mirror to verify WR data",
+      "url": "https://ipfs-gateway.flare.network/ipfs/{{FILE_CID}}",
+      "method": "GET",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "responseMapping": {
+        "wrId": ".wrId",
+        "wrHash": ".wrHash",
+        "fileCid": ".fileCid",
+        "issuerId": ".issuerId",
+        "issuedAt": ".issuedAt",
+        "status": ".status",
+        "pledgeState": ".pledgeState"
+      },
+      "expectedResponse": {
+        "wrId": "WR-001-DEMO",
+        "wrHash": "0x1234567890abcdef...",
+        "fileCid": "QmTestCid123...",
+        "issuerId": "ISSUER-001",
+        "issuedAt": "2025-09-21T09:00:00Z",
+        "status": "WR_ISSUED",
+        "pledgeState": "PLEDGED"
+      }
+    }
+  },
+  "computedAt": "2025-09-21T09:34:16.736Z"
+}

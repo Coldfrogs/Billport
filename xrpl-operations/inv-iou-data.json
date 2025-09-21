@@ -1,0 +1,20 @@
+{
+  "currency": "INV",
+  "issuer": "rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH",
+  "amount": "1000.00",
+  "wrId": "WR-2024-1758456698475",
+  "status": "issued",
+  "trustLine": {
+    "currency": "INV",
+    "issuer": "rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH",
+    "limit": "1000000.00",
+    "qualityIn": 0,
+    "qualityOut": 0
+  },
+  "issuance": {
+    "currency": "INV",
+    "issuer": "rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH",
+    "amount": "1000.00",
+    "destination": "rDx1gvXHZyiXrAWoA6Lt9D1hF2M5nR8cE3"
+  }
+}
