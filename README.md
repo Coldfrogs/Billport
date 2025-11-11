@@ -40,7 +40,7 @@ npm install
 ### Environment Setup
 Create `.env` file:
 ```
-PRIVATE_KEY=0x468f691ab49246680ac13390afc3212ed2278d59ff4c7fe085bc447a0373a927
+PRIVATE_KEY=[Insert Wallet Address]
 COSTON2_RPC_URL=https://coston2-api.flare.network/ext/C/rpc
 ```
 
