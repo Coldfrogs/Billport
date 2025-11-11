@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import WRProofTile from "@/components/WRProofTile";
 import { 
   FileText, 
   Building, 
@@ -20,7 +21,12 @@ import {
   DollarSign,
   Search,
   Filter,
-  Plus
+  Plus,
+  Upload,
+  X,
+  FileCheck,
+  AlertTriangle,
+  Paperclip
 } from "lucide-react";
 
 interface WarehouseReceipt {
@@ -45,6 +51,33 @@ interface WarehouseReceipt {
   buyer: string;
   amount: number;
   currency: string;
+  uploadedPdf?: string;
+  isDuplicate?: boolean;
+  duplicateReason?: string;
+}
+
+interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  hash: string;
+  uploadDate: string;
+  isDuplicate: boolean;
+  duplicateOf?: string;
+}
+
+interface WRAttachment {
+  id: string;
+  invoiceId: string;
+  fileName: string;
+  fileSize: number;
+  wrFileHash: string;
+  fileCid: string | null;
+  uploadedAt: string;
+  status: 'pinned' | 'local' | 'removed';
+  replacedAt?: string | null;
+  removedAt?: string | null;
 }
 
 const WarehouseReceipts: React.FC = () => {
@@ -54,6 +87,17 @@ const WarehouseReceipts: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [activeTab, setActiveTab] = useState("overview");
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [wrAttachment, setWrAttachment] = useState<WRAttachment | null>(null);
+  const [isUploadingWR, setIsUploadingWR] = useState(false);
+  const [isReplacingWR, setIsReplacingWR] = useState(false);
+  const [blockchainStatus, setBlockchainStatus] = useState<{
+    isRegistered: boolean;
+    transactionHash?: string;
+    blockNumber?: number;
+  }>({ isRegistered: false });
 
   // Sample warehouse receipt data
   const sampleWRs: WarehouseReceipt[] = [
@@ -137,6 +181,13 @@ const WarehouseReceipts: React.FC = () => {
     }, 1000);
   }, []);
 
+  // Fetch WR attachment when selected WR changes
+  useEffect(() => {
+    if (selectedWR) {
+      fetchWRAttachment(selectedWR.id);
+    }
+  }, [selectedWR]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'verified': return 'bg-green-500';
@@ -152,6 +203,285 @@ const WarehouseReceipts: React.FC = () => {
       case 'registered': return <Database className="w-4 h-4" />;
       case 'pending': return <Clock className="w-4 h-4" />;
       default: return <AlertCircle className="w-4 h-4" />;
+    }
+  };
+
+  // Simple hash function for file content
+  const generateFileHash = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  // Check if file is duplicate
+  const checkForDuplicate = (fileHash: string): UploadedFile | null => {
+    return uploadedFiles.find(file => file.hash === fileHash) || null;
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (file: File) => {
+    console.log('handleFileUpload called with file:', file);
+    console.log('File type:', file.type);
+    console.log('File size:', file.size);
+    
+    if (file.type !== 'application/pdf') {
+      console.log('Invalid file type:', file.type);
+      alert('Please upload a PDF file only.');
+      return;
+    }
+
+    console.log('Starting upload process...');
+    setIsUploading(true);
+    
+    try {
+      // Generate file hash
+      console.log('Generating file hash...');
+      const fileHash = await generateFileHash(file);
+      console.log('File hash generated:', fileHash);
+      
+      // Check for duplicates
+      const duplicateFile = checkForDuplicate(fileHash);
+      console.log('Duplicate check result:', duplicateFile);
+      
+      const newFile: UploadedFile = {
+        id: `file-${Date.now()}`,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        hash: fileHash,
+        uploadDate: new Date().toISOString(),
+        isDuplicate: !!duplicateFile,
+        duplicateOf: duplicateFile?.id
+      };
+
+      console.log('New file object:', newFile);
+      setUploadedFiles(prev => [...prev, newFile]);
+
+      // Update selected WR if it exists
+      if (selectedWR) {
+        console.log('Updating selected WR:', selectedWR.id);
+        const updatedWR = {
+          ...selectedWR,
+          uploadedPdf: newFile.id,
+          isDuplicate: newFile.isDuplicate,
+          duplicateReason: newFile.isDuplicate ? `This invoice is a duplicate of ${duplicateFile?.name}` : undefined
+        };
+        
+        setSelectedWR(updatedWR);
+        
+        // Update the WR in the list
+        setWarehouseReceipts(prev => 
+          prev.map(wr => wr.id === selectedWR.id ? updatedWR : wr)
+        );
+      }
+
+      if (newFile.isDuplicate) {
+        alert(`⚠️ DUPLICATE DETECTED!\n\nThis invoice has been uploaded before as: ${duplicateFile?.name}\n\nUpload Date: ${new Date(duplicateFile?.uploadDate || '').toLocaleDateString()}`);
+      } else {
+        alert(`✅ File uploaded successfully!\n\nFile: ${file.name}\nHash: ${fileHash.substring(0, 16)}...`);
+      }
+
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Error uploading file. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Handle drag and drop
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('File input changed:', e.target.files);
+    if (e.target.files && e.target.files[0]) {
+      console.log('File selected:', e.target.files[0]);
+      handleFileUpload(e.target.files[0]);
+    }
+  };
+
+  // WR Attachment functions
+  const fetchWRAttachment = async (invoiceId: string) => {
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/wr-attachment`);
+      if (response.ok) {
+        const data = await response.json();
+        setWrAttachment(data.attachment);
+      } else if (response.status === 404) {
+        setWrAttachment(null);
+      }
+    } catch (error) {
+      console.error('Error fetching WR attachment:', error);
+    }
+  };
+
+  const uploadWRAttachment = async (file: File) => {
+    if (!selectedWR) return;
+
+    setIsUploadingWR(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`/api/invoices/${selectedWR.id}/wr-attachment`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setWrAttachment(data.attachment);
+        alert(`✅ WR PDF uploaded successfully!\n\nFile: ${file.name}\nHash: ${data.attachment.wrFileHash.substring(0, 16)}...`);
+      } else {
+        const error = await response.json();
+        alert(`❌ Upload failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error uploading WR attachment:', error);
+      alert('Error uploading WR attachment. Please try again.');
+    } finally {
+      setIsUploadingWR(false);
+    }
+  };
+
+  const replaceWRAttachment = async (file: File) => {
+    if (!selectedWR) return;
+
+    setIsReplacingWR(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`/api/invoices/${selectedWR.id}/wr-attachment`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setWrAttachment(data.attachment);
+        alert(`✅ WR PDF replaced successfully!\n\nFile: ${file.name}\nHash: ${data.attachment.wrFileHash.substring(0, 16)}...\n\n⚠️ Hash updated for proof verification.`);
+      } else {
+        const error = await response.json();
+        alert(`❌ Replace failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error replacing WR attachment:', error);
+      alert('Error replacing WR attachment. Please try again.');
+    } finally {
+      setIsReplacingWR(false);
+    }
+  };
+
+  const removeWRAttachment = async () => {
+    if (!selectedWR || !wrAttachment) return;
+
+    try {
+      const response = await fetch(`/api/invoices/${selectedWR.id}/wr-attachment/${wrAttachment.id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setWrAttachment(null);
+        alert('✅ WR attachment removed successfully');
+      } else {
+        const error = await response.json();
+        alert(`❌ Remove failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error removing WR attachment:', error);
+      alert('Error removing WR attachment. Please try again.');
+    }
+  };
+
+  const useInProofFlow = async () => {
+    if (!wrAttachment) return;
+    
+    const eventData = {
+      invoiceId: wrAttachment.invoiceId,
+      wrFileHash: wrAttachment.wrFileHash,
+      fileCid: wrAttachment.fileCid
+    };
+    
+    console.log('🚀 onWrFilePrepared event:', eventData);
+    
+    try {
+      // Simulate smart contract interaction
+      const response = await fetch('/api/invoices/register-wr-hash', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          wrId: wrAttachment.invoiceId,
+          wrFileHash: wrAttachment.wrFileHash,
+          fileCid: wrAttachment.fileCid
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setBlockchainStatus({
+          isRegistered: true,
+          transactionHash: result.transactionHash,
+          blockNumber: result.blockNumber
+        });
+        alert(`✅ WR hash registered on blockchain!\n\nTransaction: ${result.transactionHash}\nBlock: ${result.blockNumber}\nGas Used: ${result.gasUsed}\n\nEvent data:\n${JSON.stringify(eventData, null, 2)}`);
+      } else {
+        throw new Error('Failed to register on blockchain');
+      }
+    } catch (error) {
+      console.error('Smart contract error:', error);
+      alert(`⚠️ Smart contract interaction failed, but WR data is ready:\n\n${JSON.stringify(eventData, null, 2)}\n\nError: ${error.message}`);
+    }
+  };
+
+  const handleWRAttachmentUpload = (file: File) => {
+    if (file.type !== 'application/pdf') {
+      alert('Please upload a PDF file only.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size exceeds 10MB limit.');
+      return;
+    }
+
+    if (wrAttachment) {
+      replaceWRAttachment(file);
+    } else {
+      uploadWRAttachment(file);
+    }
+  };
+
+  // Handle click on upload area
+  const handleUploadClick = () => {
+    console.log('Upload area clicked');
+    const fileInput = document.getElementById('pdf-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
     }
   };
 
@@ -245,10 +575,18 @@ const WarehouseReceipts: React.FC = () => {
                       selectedWR?.id === wr.id 
                         ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' 
                         : 'hover:border-gray-300'
-                    }`}
+                    } ${wr.isDuplicate ? 'border-red-200 bg-red-50 dark:bg-red-950/10' : ''}`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold">{wr.wrId}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{wr.wrId}</h3>
+                        {wr.isDuplicate && (
+                          <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                            <X className="w-4 h-4" />
+                            <span className="text-xs font-medium">DUPLICATE</span>
+                          </div>
+                        )}
+                      </div>
                       <Badge className={`${getStatusColor(wr.verificationStatus)} text-white`}>
                         {wr.verificationStatus.toUpperCase()}
                       </Badge>
@@ -261,6 +599,12 @@ const WarehouseReceipts: React.FC = () => {
                         {wr.verificationStatus === 'verified' ? 'Verified' : 
                          wr.verificationStatus === 'registered' ? 'On Blockchain' : 'Pending'}
                       </span>
+                      {wr.uploadedPdf && (
+                        <div className="flex items-center gap-1 ml-2">
+                          <FileText className="w-3 h-3 text-blue-500" />
+                          <span className="text-xs text-blue-500">PDF</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -280,6 +624,115 @@ const WarehouseReceipts: React.FC = () => {
               </TabsList>
 
               <TabsContent value="overview" className="space-y-6">
+                {/* Duplicate Warning */}
+                {selectedWR.isDuplicate && (
+                  <Card className="card-glow border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+                          <X className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-red-800 dark:text-red-200">Duplicate Invoice Detected</h3>
+                          <p className="text-sm text-red-600 dark:text-red-300">{selectedWR.duplicateReason}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* PDF Upload Section */}
+                <Card className="card-glow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Upload className="w-5 h-5" />
+                      Upload Invoice PDF
+                    </CardTitle>
+                    <CardDescription>
+                      Upload the original invoice PDF for verification and duplicate detection
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                        dragActive 
+                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' 
+                          : 'border-gray-300 dark:border-gray-600 hover:border-emerald-400'
+                      }`}
+                      onDragEnter={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDragOver={handleDrag}
+                      onDrop={handleDrop}
+                      onClick={handleUploadClick}
+                    >
+                      {isUploading ? (
+                        <div className="space-y-4">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
+                          <p className="text-muted-foreground">Processing file...</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto">
+                            <Upload className="w-8 h-8 text-gray-400" />
+                          </div>
+                          <div>
+                            <p className="text-lg font-medium">Drop your PDF here</p>
+                            <p className="text-sm text-muted-foreground">or click to browse files</p>
+                          </div>
+                          <input
+                            type="file"
+                            accept=".pdf"
+                            onChange={handleFileInputChange}
+                            className="hidden"
+                            id="pdf-upload"
+                          />
+                          <div
+                            className="btn-primary cursor-pointer inline-flex items-center gap-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUploadClick();
+                            }}
+                          >
+                            <Upload className="w-4 h-4" />
+                            Choose PDF File
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Uploaded File Info */}
+                    {selectedWR.uploadedPdf && (
+                      <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              selectedWR.isDuplicate ? 'bg-red-500' : 'bg-green-500'
+                            }`}>
+                              {selectedWR.isDuplicate ? (
+                                <X className="w-4 h-4 text-white" />
+                              ) : (
+                                <FileCheck className="w-4 h-4 text-white" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                {uploadedFiles.find(f => f.id === selectedWR.uploadedPdf)?.name || 'Uploaded PDF'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {selectedWR.isDuplicate ? 'Duplicate detected' : 'File verified'}
+                              </p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm">
+                            <Eye className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {/* WR Header */}
                 <Card className="card-glow">
                   <CardHeader>
@@ -356,6 +809,124 @@ const WarehouseReceipts: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* WR PDF Attachment Section */}
+                <Card className="card-glow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Paperclip className="w-5 h-5" />
+                      Warehouse Receipt (PDF attachment)
+                    </CardTitle>
+                    <CardDescription>
+                      Attach a WR PDF to compute content hash and optionally pin to IPFS
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {wrAttachment ? (
+                      <div className="space-y-4">
+                        {/* Blockchain Status */}
+                        {blockchainStatus.isRegistered && (
+                          <Card className="card-glow border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20">
+                            <CardContent className="pt-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                  <CheckCircle className="w-5 h-5 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-green-800 dark:text-green-200">Registered on Blockchain</h3>
+                                  <p className="text-sm text-green-600 dark:text-green-300">
+                                    Transaction: {blockchainStatus.transactionHash?.substring(0, 16)}...
+                                    {blockchainStatus.blockNumber && ` • Block: ${blockchainStatus.blockNumber}`}
+                                  </p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    if (blockchainStatus.transactionHash) {
+                                      navigator.clipboard.writeText(blockchainStatus.transactionHash);
+                                      alert('Transaction hash copied to clipboard!');
+                                    }
+                                  }}
+                                >
+                                  <Copy className="w-3 h-3 mr-1" />
+                                  Copy
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                        
+                        <WRProofTile
+                          attachment={wrAttachment}
+                          onReplace={() => {
+                            const fileInput = document.getElementById('wr-pdf-upload') as HTMLInputElement;
+                            if (fileInput) fileInput.click();
+                          }}
+                          onRemove={removeWRAttachment}
+                          onUseInProofFlow={useInProofFlow}
+                          isReplacing={isReplacingWR}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                          dragActive 
+                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' 
+                            : 'border-gray-300 dark:border-gray-600 hover:border-emerald-400'
+                        }`}
+                        onDragEnter={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDragOver={handleDrag}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDragActive(false);
+                          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                            handleWRAttachmentUpload(e.dataTransfer.files[0]);
+                          }
+                        }}
+                        onClick={() => {
+                          const fileInput = document.getElementById('wr-pdf-upload') as HTMLInputElement;
+                          if (fileInput) fileInput.click();
+                        }}
+                      >
+                        {isUploadingWR ? (
+                          <div className="space-y-4">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto"></div>
+                            <p className="text-muted-foreground">Processing WR PDF...</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto">
+                              <Upload className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <div>
+                              <p className="text-lg font-medium">Attach WR PDF</p>
+                              <p className="text-sm text-muted-foreground">
+                                Drop your PDF here or click to browse
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                We compute a content hash and (optionally) pin to IPFS; this does not move funds.
+                              </p>
+                            </div>
+                            <input
+                              type="file"
+                              accept=".pdf"
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                  handleWRAttachmentUpload(e.target.files[0]);
+                                }
+                              }}
+                              className="hidden"
+                              id="wr-pdf-upload"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

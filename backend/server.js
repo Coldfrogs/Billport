@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
+const crypto = require('crypto');
 const { ethers } = require('ethers');
 const path = require('path');
 
@@ -10,6 +12,25 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend_trade/trade-proof-gateway-main/dist')));
+
+// Multer configuration for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'), false);
+    }
+  }
+});
+
+// WR Attachment storage (in-memory for demo)
+const wrAttachments = new Map();
 
 // Contract addresses (deployed on Coston2 testnet)
 const CONTRACT_ADDRESSES = {
@@ -700,6 +721,190 @@ app.post('/api/positions/list', async (req, res) => {
 // Serve React app for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend_trade/trade-proof-gateway-main/dist/index.html'));
+});
+
+// WR Attachment API Routes
+
+// Helper function to compute keccak256 hash
+function computeKeccak256Hash(buffer) {
+  return '0x' + crypto.createHash('sha3-256').update(buffer).digest('hex');
+}
+
+// Helper function to simulate IPFS pinning (demo implementation)
+async function pinToIPFS(fileBuffer, fileName) {
+  // In a real implementation, this would use IPFS client
+  // For demo purposes, we'll simulate with a mock CID
+  const mockCid = 'Qm' + crypto.randomBytes(20).toString('base58');
+  console.log(`📌 Simulated IPFS pin: ${fileName} -> ${mockCid}`);
+  return mockCid;
+}
+
+// POST /api/invoices/:invoiceId/wr-attachment
+app.post('/api/invoices/:invoiceId/wr-attachment', upload.single('file'), async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { originalname, size, buffer, mimetype } = req.file;
+    
+    // Validate file type
+    if (mimetype !== 'application/pdf') {
+      return res.status(400).json({ error: 'Only PDF files are allowed' });
+    }
+
+    // Validate file size (already handled by multer, but double-check)
+    if (size > 10 * 1024 * 1024) {
+      return res.status(400).json({ error: 'File size exceeds 10MB limit' });
+    }
+
+    // Compute wrFileHash (keccak256 of raw file bytes)
+    const wrFileHash = computeKeccak256Hash(buffer);
+    
+    // Try to pin to IPFS (simulated)
+    let fileCid = null;
+    let status = 'local';
+    
+    try {
+      fileCid = await pinToIPFS(buffer, originalname);
+      status = 'pinned';
+    } catch (ipfsError) {
+      console.warn('IPFS pinning failed:', ipfsError.message);
+      // Continue without IPFS
+    }
+
+    // Create attachment record
+    const attachment = {
+      id: `wr-attachment-${Date.now()}`,
+      invoiceId,
+      fileName: originalname,
+      fileSize: size,
+      wrFileHash,
+      fileCid,
+      uploadedAt: new Date().toISOString(),
+      status,
+      replacedAt: null,
+      removedAt: null
+    };
+
+    // Store attachment (replace any existing one for this invoice)
+    wrAttachments.set(invoiceId, attachment);
+
+    console.log(`📎 WR attachment created for invoice ${invoiceId}:`, {
+      fileName: originalname,
+      fileSize: size,
+      wrFileHash: wrFileHash.substring(0, 16) + '...',
+      fileCid: fileCid ? fileCid.substring(0, 16) + '...' : null,
+      status
+    });
+
+    res.json({
+      success: true,
+      attachment
+    });
+
+  } catch (error) {
+    console.error('Error uploading WR attachment:', error);
+    res.status(500).json({ error: 'Failed to upload WR attachment' });
+  }
+});
+
+// GET /api/invoices/:invoiceId/wr-attachment
+app.get('/api/invoices/:invoiceId/wr-attachment', async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const attachment = wrAttachments.get(invoiceId);
+    
+    if (!attachment) {
+      return res.status(404).json({ error: 'No WR attachment found for this invoice' });
+    }
+
+    res.json({
+      success: true,
+      attachment
+    });
+
+  } catch (error) {
+    console.error('Error fetching WR attachment:', error);
+    res.status(500).json({ error: 'Failed to fetch WR attachment' });
+  }
+});
+
+// DELETE /api/invoices/:invoiceId/wr-attachment/:id
+app.delete('/api/invoices/:invoiceId/wr-attachment/:id', async (req, res) => {
+  try {
+    const { invoiceId, id } = req.params;
+    const attachment = wrAttachments.get(invoiceId);
+    
+    if (!attachment || attachment.id !== id) {
+      return res.status(404).json({ error: 'WR attachment not found' });
+    }
+
+    // Soft delete - mark as removed
+    attachment.status = 'removed';
+    attachment.removedAt = new Date().toISOString();
+    
+    wrAttachments.set(invoiceId, attachment);
+
+    console.log(`🗑️ WR attachment removed for invoice ${invoiceId}:`, id);
+
+    res.json({
+      success: true,
+      message: 'WR attachment removed successfully'
+    });
+
+  } catch (error) {
+    console.error('Error removing WR attachment:', error);
+    res.status(500).json({ error: 'Failed to remove WR attachment' });
+  }
+});
+
+// POST /api/invoices/register-wr-hash
+app.post('/api/invoices/register-wr-hash', async (req, res) => {
+  try {
+    const { wrId, wrFileHash, fileCid } = req.body;
+    
+    if (!wrId || !wrFileHash) {
+      return res.status(400).json({ error: 'Missing required fields: wrId, wrFileHash' });
+    }
+
+    // Simulate smart contract interaction
+    // In a real implementation, this would call the actual WRRegistry contract
+    const mockTransactionHash = '0x' + crypto.randomBytes(32).toString('hex');
+    
+    console.log(`🔗 Simulating WR hash registration on blockchain:`, {
+      wrId,
+      wrFileHash: wrFileHash.substring(0, 16) + '...',
+      fileCid: fileCid ? fileCid.substring(0, 16) + '...' : null,
+      transactionHash: mockTransactionHash
+    });
+
+    // Simulate blockchain delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // In a real implementation, you would:
+    // 1. Connect to the blockchain
+    // 2. Call WRRegistry.registerWR(wrId, wrFileHash)
+    // 3. Wait for transaction confirmation
+    // 4. Return actual transaction hash
+
+    res.json({
+      success: true,
+      message: 'WR hash registered on blockchain successfully',
+      transactionHash: mockTransactionHash,
+      wrId,
+      wrFileHash,
+      fileCid,
+      blockNumber: Math.floor(Math.random() * 1000000) + 1000000,
+      gasUsed: Math.floor(Math.random() * 50000) + 100000
+    });
+
+  } catch (error) {
+    console.error('Error registering WR hash on blockchain:', error);
+    res.status(500).json({ error: 'Failed to register WR hash on blockchain' });
+  }
 });
 
 app.listen(PORT, () => {
